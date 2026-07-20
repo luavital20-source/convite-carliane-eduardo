@@ -131,7 +131,10 @@
   .gift-btn{font-family:'Jost',sans-serif;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;padding:10px 6px;border-radius:8px;border:1px solid var(--blue-deep);cursor:pointer;transition:all .25s;}
   .gift-pix{background:var(--blue-deep);color:#fff;}
   .gift-pix.ok{background:var(--sage-deep);border-color:var(--sage-deep);}
-  .gift-card-pay{background:transparent;color:var(--blue-deep);opacity:.45;cursor:default;}
+  .gift-card-pay{background:transparent;color:var(--blue-deep);cursor:pointer;}
+  .gift-card-pay:hover{background:var(--blue-deep);color:#fff;}
+  .gift-card-pay:disabled{opacity:.55;cursor:progress;background:transparent;color:var(--blue-deep);}
+  .gift-error{font-family:'Jost',sans-serif;font-size:.6rem;letter-spacing:.06em;color:#b23b3b;margin:6px 0 0;text-align:center;}
   @media(min-width:760px){.gift-grid{grid-template-columns:repeat(3,1fr);gap:18px;}}
 
   /* ───────── DAY / LOCATIONS ───────── */
@@ -782,10 +785,49 @@ function startMusic(){ try{audio.currentTime=0;}catch(e){} tryPlay(); }
       });
     });
   });
+  /* ─── Botão "Cartão": cria checkout no PagBank e redireciona ─── */
+  // Converte um preço em texto ("R$ 1.250,00") para centavos inteiros (125000).
+  function precoParaCentavos(txt){
+    const limpo=String(txt||'').replace(/[^\d.,]/g,'');      // "1.250,00"
+    const normal=limpo.replace(/\./g,'').replace(',','.');   // "1250.00"
+    const val=parseFloat(normal);
+    return isFinite(val)?Math.round(val*100):NaN;
+  }
+  // Mostra/limpa uma mensagem de erro discreta dentro do card.
+  function mostrarErro(card,msg){
+    let el=card.querySelector('.gift-error');
+    if(!el){el=document.createElement('p');el.className='gift-error';card.appendChild(el);}
+    el.textContent=msg;
+  }
+  function limparErro(card){const el=card.querySelector('.gift-error');if(el)el.remove();}
+
   document.querySelectorAll('.gift-card-pay').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const url=btn.dataset.checkout;
-      if(url) window.open(url,'_blank');   // preenchido na integração PagBank
+    // Ativa o botão (antes ficava inerte com aria-disabled / title "em breve").
+    btn.removeAttribute('aria-disabled');
+    btn.removeAttribute('title');
+    btn.addEventListener('click',async()=>{
+      if(btn.dataset.loading==='1')return;               // evita clique duplo
+      const card=btn.closest('.gift-card');
+      if(!card)return;
+      const title=(card.querySelector('.gift-title')?.textContent||'Presente').trim();
+      const amount=precoParaCentavos(card.querySelector('.gift-price')?.textContent);
+      if(!Number.isInteger(amount)||amount<=0){mostrarErro(card,'Valor indisponível.');return;}
+      const original=btn.textContent;
+      btn.dataset.loading='1';btn.disabled=true;btn.textContent='Processando...';
+      limparErro(card);
+      try{
+        const r=await fetch('/api/checkout',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({title,amount})
+        });
+        const data=await r.json().catch(()=>null);
+        if(r.ok&&data&&data.url){window.location.href=data.url;return;}
+        throw new Error((data&&data.error)||'Falha ao gerar o pagamento.');
+      }catch(e){
+        mostrarErro(card,'Não foi possível abrir o pagamento. Tente novamente.');
+        btn.dataset.loading='0';btn.disabled=false;btn.textContent=original;
+      }
     });
   });
 })();
