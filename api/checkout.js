@@ -122,9 +122,14 @@ module.exports = async function handler(req, res) {
   if (!pagbankResp.ok) {
     // Log sem token; ajuda a depurar sem vazar credencial.
     console.error('PagBank retornou erro', pagbankResp.status, JSON.stringify(dados));
-    return res.status(pagbankResp.status).json({
-      error: 'O PagBank recusou a criação do checkout.',
-    });
+    const resposta = { error: 'O PagBank recusou a criação do checkout.' };
+    // Detalhe do erro só quando chamado com ?debug=1 (o corpo de erro do
+    // PagBank não contém o token, então é seguro; mantém produção limpa).
+    if (/[?&]debug=1(&|$)/.test(req.url || '')) {
+      resposta.pagbank_status = pagbankResp.status;
+      resposta.pagbank_detail = dados;
+    }
+    return res.status(pagbankResp.status).json(resposta);
   }
 
   // 7) Extrai o link de pagamento (rel === "PAY") da resposta.
