@@ -785,7 +785,7 @@ function startMusic(){ try{audio.currentTime=0;}catch(e){} tryPlay(); }
       });
     });
   });
-  /* ─── Botão "Cartão": cria checkout no PagBank e redireciona ─── */
+  /* ─── Botão "Cartão": cria checkout no InfinitePay e redireciona ─── */
   // Converte um preço em texto ("R$ 1.250,00") para centavos inteiros (125000).
   function precoParaCentavos(txt){
     const limpo=String(txt||'').replace(/[^\d.,]/g,'');      // "1.250,00"

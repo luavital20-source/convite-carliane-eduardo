@@ -1,25 +1,24 @@
 // api/checkout.js
-// Função serverless (Vercel, runtime nodejs20.x) que cria um checkout de
-// PRODUÇÃO no PagBank e devolve a URL da página de pagamento (link rel="PAY").
+// Função serverless (Vercel, Node 20) que cria um link de pagamento no
+// InfinitePay (Checkout Integrado) e devolve a URL da página de pagamento.
 //
-// O token da API vive APENAS em process.env.PAGBANK_TOKEN (variável de
-// ambiente na Vercel). Ele nunca é enviado ao navegador nem impresso em log.
+// O InfinitePay NÃO exige token/autenticação: basta o "handle" (a InfiniteTag
+// da conta, sem o "$"). O handle vem de INFINITEPAY_HANDLE, com um padrão
+// embutido, para poder ser corrigido na Vercel sem alterar o código.
 //
-// Sem dependências externas: usa o fetch nativo do Node 20 e o crypto nativo.
+// Sem dependências externas: usa o fetch nativo do Node 20.
 
-const { randomUUID } = require('crypto');
+// Handle (InfiniteTag) da conta que vai RECEBER os presentes.
+const HANDLE = (process.env.INFINITEPAY_HANDLE || 'venancio').replace(/^\$/, '').trim();
 
 // Teto de segurança: nenhum presente passa de R$ 5.000,00 (em centavos).
 const MAX_AMOUNT_CENTAVOS = 500000;
 
-// Descobre a URL pública do convite a partir dos cabeçalhos da requisição,
-// para mandar o convidado de volta ao site depois de pagar/cancelar.
+// Descobre a URL pública do convite, para o convidado voltar ao site após pagar.
 function descobrirBaseUrl(req) {
-  // Preferimos o Origin enviado pelo navegador (ex.: https://convite.vercel.app).
   const origin = req.headers['origin'];
   if (origin) return origin.replace(/\/+$/, '');
 
-  // Fallback: reconstrói a partir do host encaminhado pela Vercel.
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers['host'];
   if (host) return `${proto}://${host}`.replace(/\/+$/, '');
@@ -27,8 +26,7 @@ function descobrirBaseUrl(req) {
   return '';
 }
 
-// Lê e valida o corpo (a Vercel entrega req.body já parseado quando o
-// Content-Type é application/json; tratamos também o caso de string).
+// Lê o corpo (a Vercel entrega req.body parseado quando o Content-Type é JSON).
 function lerBody(req) {
   const raw = req.body;
   if (!raw) return {};
@@ -61,86 +59,70 @@ module.exports = async function handler(req, res) {
   }
   const nome = title.trim();
 
-  // 3) Token de produção — só existe no servidor.
-  const token = process.env.PAGBANK_TOKEN;
-  if (!token) {
+  // 3) O handle precisa existir (é o "endereço" que recebe o dinheiro).
+  if (!HANDLE) {
     return res.status(500).json({
-      error: 'Configuração ausente: defina a variável de ambiente PAGBANK_TOKEN na Vercel.',
+      error: 'Configuração ausente: defina INFINITEPAY_HANDLE (a InfiniteTag, sem o "$").',
     });
   }
 
-  // 4) URLs de retorno para o próprio convite.
   const baseUrl = descobrirBaseUrl(req);
-  const referenceId = `presente-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const orderNsu = `presente-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  // Payload mínimo do Checkout do PagBank (produção).
+  // 4) Payload do Checkout do InfinitePay. Preço em centavos.
   const payload = {
-    reference_id: referenceId,
-    customer_modifiable: true,
+    handle: HANDLE,
+    order_nsu: orderNsu,
     items: [
       {
-        reference_id: referenceId,
-        name: nome,
         quantity: 1,
-        unit_amount: amount, // em centavos
+        price: amount,      // em centavos
+        description: nome,
       },
     ],
-    payment_methods: [
-      { type: 'CREDIT_CARD' },
-      { type: 'DEBIT_CARD' },
-      { type: 'PIX' },
-    ],
   };
-  // Só enviamos as URLs de retorno se conseguimos descobrir a base.
-  if (baseUrl) {
-    payload.redirect_url = baseUrl; // volta ao convite após concluir
-    payload.return_url = baseUrl;   // volta ao convite após cancelar/concluir
-  }
+  // Volta para o convite depois que o pagamento for concluído.
+  if (baseUrl) payload.redirect_url = baseUrl;
 
-  // 5) Chamada à API de Checkout do PagBank.
-  let pagbankResp;
+  // 5) Chamada à API de Checkout do InfinitePay (sem token).
+  let apiResp;
   let dados;
   try {
-    pagbankResp = await fetch('https://api.pagseguro.com/checkouts', {
+    apiResp = await fetch('https://api.checkout.infinitepay.io/links', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'x-idempotency-key': randomUUID(), // um UUID por requisição
       },
       body: JSON.stringify(payload),
     });
-    dados = await pagbankResp.json().catch(() => null);
+    dados = await apiResp.json().catch(() => null);
   } catch (e) {
-    // Nunca logamos o token; só a mensagem do erro de rede.
-    console.error('Falha ao contatar o PagBank:', e && e.message);
-    return res.status(502).json({ error: 'Não foi possível contatar o PagBank.' });
+    console.error('Falha ao contatar o InfinitePay:', e && e.message);
+    return res.status(502).json({ error: 'Não foi possível contatar o InfinitePay.' });
   }
 
-  // 6) Se o PagBank recusou, repassamos o status com uma mensagem enxuta.
-  if (!pagbankResp.ok) {
-    // Log sem token; ajuda a depurar sem vazar credencial.
-    console.error('PagBank retornou erro', pagbankResp.status, JSON.stringify(dados));
-    const resposta = { error: 'O PagBank recusou a criação do checkout.' };
-    // Detalhe do erro só quando chamado com ?debug=1 (o corpo de erro do
-    // PagBank não contém o token, então é seguro; mantém produção limpa).
+  // 6) Se o InfinitePay recusou, repassamos o status com mensagem enxuta.
+  if (!apiResp.ok || !dados || !dados.url) {
+    console.error('InfinitePay retornou erro', apiResp.status, JSON.stringify(dados));
+
+    // Erro mais comum: o Checkout Integrado ainda não foi ativado na conta.
+    const naoAtivado = dados && dados.error === 'external_checkout_not_enabled';
+    const resposta = {
+      error: naoAtivado
+        ? 'O Checkout Integrado ainda não está ativado na conta InfinitePay.'
+        : 'O InfinitePay recusou a criação do link de pagamento.',
+    };
+
+    // Detalhe só com ?debug=1 (mantém a resposta limpa em produção).
     if (/[?&]debug=1(&|$)/.test(req.url || '')) {
-      resposta.pagbank_status = pagbankResp.status;
-      resposta.pagbank_detail = dados;
+      resposta.infinitepay_status = apiResp.status;
+      resposta.infinitepay_detail = dados;
+      resposta.handle_usado = HANDLE;
     }
-    return res.status(pagbankResp.status).json(resposta);
+    return res.status(apiResp.ok ? 502 : apiResp.status).json(resposta);
   }
 
-  // 7) Extrai o link de pagamento (rel === "PAY") da resposta.
-  const links = (dados && dados.links) || [];
-  const pay = links.find((l) => l && String(l.rel).toUpperCase() === 'PAY');
-
-  if (!pay || !pay.href) {
-    console.error('Resposta do PagBank sem link PAY:', JSON.stringify(dados));
-    return res.status(502).json({ error: 'PagBank não retornou a URL de pagamento.' });
-  }
-
-  // 8) Sucesso: devolvemos só a URL para o front-end redirecionar.
-  return res.status(200).json({ url: pay.href });
+  // 7) Sucesso: devolvemos só a URL para o front-end redirecionar.
+  return res.status(200).json({ url: dados.url });
 };
