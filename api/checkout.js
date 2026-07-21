@@ -9,7 +9,12 @@
 // Sem dependências externas: usa o fetch nativo do Node 20.
 
 // Handle (InfiniteTag) da conta que vai RECEBER os presentes.
-const HANDLE = (process.env.INFINITEPAY_HANDLE || 'venancio').replace(/^\$/, '').trim();
+// Padrão: a conta da noiva (Carliane). Pode ser sobrescrito na Vercel pela
+// variável INFINITEPAY_HANDLE, mas o padrão já é o correto — assim o site
+// nunca cai numa conta errada caso a variável falte.
+const HANDLE = (process.env.INFINITEPAY_HANDLE || 'venancio-carliane-t66')
+  .replace(/^\$/, '')
+  .trim();
 
 // Teto de segurança: nenhum presente passa de R$ 5.000,00 (em centavos).
 const MAX_AMOUNT_CENTAVOS = 500000;
