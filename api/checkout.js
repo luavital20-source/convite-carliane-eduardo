@@ -118,13 +118,6 @@ module.exports = async function handler(req, res) {
         ? 'O Checkout Integrado ainda não está ativado na conta InfinitePay.'
         : 'O InfinitePay recusou a criação do link de pagamento.',
     };
-
-    // Detalhe só com ?debug=1 (mantém a resposta limpa em produção).
-    if (/[?&]debug=1(&|$)/.test(req.url || '')) {
-      resposta.infinitepay_status = apiResp.status;
-      resposta.infinitepay_detail = dados;
-      resposta.handle_usado = HANDLE;
-    }
     return res.status(apiResp.ok ? 502 : apiResp.status).json(resposta);
   }
 

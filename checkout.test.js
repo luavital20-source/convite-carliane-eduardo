@@ -99,24 +99,15 @@ function fetchNotEnabled() {
     assert.ok(payload.order_nsu, 'faltou order_nsu');
   }
 
-  // 5) Checkout não ativado -> mensagem clara
+  // 5) Checkout não ativado -> mensagem clara, sem vazar detalhe interno
   {
     fetchNotEnabled();
     const res = mockRes();
     await handler(mockReq('POST', { title: 'Presente', amount: 15000 }), res);
     assert.strictEqual(res.statusCode, 404);
     assert.match(res.body.error, /não está ativado/i, 'deveria explicar que falta ativar');
-    // Sem ?debug=1 não vaza detalhe interno
     assert.strictEqual(res.body.infinitepay_detail, undefined, 'não deveria expor detalhe');
-  }
-
-  // 6) Com ?debug=1 o detalhe aparece
-  {
-    fetchNotEnabled();
-    const res = mockRes();
-    await handler(mockReq('POST', { title: 'Presente', amount: 15000 }, '/api/checkout?debug=1'), res);
-    assert.ok(res.body.infinitepay_detail, 'com debug=1 deveria expor detalhe');
-    assert.strictEqual(res.body.handle_usado, 'handle-teste');
+    assert.strictEqual(res.body.handle_usado, undefined, 'não deveria expor o handle');
   }
 
   console.log('OK: todos os testes passaram.');
