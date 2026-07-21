@@ -56,8 +56,14 @@
   }
   .splash-names .amp{font-style:italic;color:var(--blue);font-weight:400;display:block;font-size:.5em;margin:.06em 0;}
   .splash-date{
-    margin-top:22px;font-size:12px;font-weight:300;letter-spacing:.55em;
-    color:var(--blue-deep);text-indent:.55em;opacity:0;animation:fadeUp 1s .85s forwards;
+    margin-top:0;font-size:12px;font-weight:300;letter-spacing:.55em;
+    color:var(--blue-deep);text-indent:.55em;opacity:0;animation:fadeUp 1s .4s forwards;
+  }
+  .splash-phrase{
+    font-family:'Bodoni Moda',serif;font-style:italic;font-weight:400;
+    font-size:clamp(14px,4vw,17px);line-height:1.55;color:var(--blue-deep);
+    text-align:center;max-width:340px;margin:22px auto 0;
+    opacity:0;animation:fadeUp 1s 1.1s forwards;
   }
   .splash-hint{
     position:absolute;bottom:54px;z-index:2;font-size:15px;letter-spacing:.32em;
@@ -184,6 +190,8 @@
   .dress-icon{width:34px;height:34px;margin:30px auto 0;color:var(--blue);}
   .dress-main{font-family:'Bodoni Moda',serif;font-style:italic;font-size:26px;color:var(--ink);margin-top:22px;}
   .dress-note{font-size:13.5px;line-height:1.8;color:var(--ink-soft);max-width:380px;margin:14px auto 0;}
+  .dress-photo{max-width:360px;margin:30px auto 0;}
+  .dress-photo img{width:100%;border-radius:10px;filter:saturate(.95);box-shadow:0 14px 34px rgba(92,113,155,.16);display:block;}
 
   /* ───────── GIFTS ───────── */
   #gifts{padding:58px 0;text-align:center;}
@@ -273,8 +281,9 @@
   <span class="acc bg-euc" style="width:148px;height:264px;top:-34px;left:-46px;transform:rotate(158deg);opacity:.72;z-index:1"></span>
   <span class="acc bg-leaf" style="width:172px;height:274px;bottom:-36px;right:-44px;transform:rotate(6deg);opacity:.72;z-index:1"></span>
   <div class="splash-inner">
-    <h1 class="splash-names" id="splashNames"></h1>
     <p class="splash-date" id="splashDate"></p>
+    <h1 class="splash-names" id="splashNames"></h1>
+    <p class="splash-phrase">E quem diria que dois times rivais colocariam o amor para jogar no mesmo time… ⚽❤️</p>
   </div>
   <p class="splash-hint">toque para abrir</p>
 </div>
@@ -381,6 +390,7 @@
       <svg class="dress-icon reveal d1" viewBox="0 0 48 48" fill="none"><path d="M24 12a3 3 0 100-6 3 3 0 000 6zm0 0v3l-13 9c-2 1.4-1 4 1.4 4h23.2c2.4 0 3.4-2.6 1.4-4l-13-9" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 32h34" stroke="currentColor" stroke-width="1.3"/></svg>
       <p class="dress-main reveal d1">Passeio completo</p>
       <p class="dress-note reveal d2">Pedimos apenas que evitem o <strong style="color:var(--ink);font-weight:400">branco</strong> e o <strong style="color:var(--ink);font-weight:400">azul serenity</strong>, reservados à noiva e à decoração. Fora isso, fiquem à vontade para celebrar com elegância e conforto.</p>
+      <div class="dress-photo reveal d2"><img src="dress-code.jpeg" alt="Inspiração de traje" loading="lazy"></div>
     </div>
   </section>
 
